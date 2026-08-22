@@ -25,8 +25,7 @@ err() {
 options=$(getopt -o "c:fi:h" --long ",codec:,ffmpeg-out,input:,help" -n "$(basename $0)" -- "$@")
 
 if [[ $? -ne 0 ]]; then
-    err "Failed to parse options"
-    exit 1
+    err "Failed to parse options" fatal
 fi
 
 eval set -- "$options"
@@ -58,15 +57,14 @@ while true; do
           break
           ;;
         *)
-          err "Internal error - invalid argument!"
-          exit 1
+          err "Internal error - invalid argument!" fatal
           ;;
     esac
 done
 
 # Try to catch bad args (incl. positional args)
 if [[ -z "$input" ]]; then
-    err "No input file specified"
+    err "No input file specified" fatal
 fi
 
 # Generate output
@@ -74,8 +72,7 @@ write_out() {
     local filename=""
     read -rp "Filename for track from $1 to $2: " filename
     if [[ -z "$filename" ]]; then
-        err "Filename must not be empty!"
-        exit 1
+        err "Filename must not be empty!" fatal
     fi
     local ffmpegcmd="ffmpeg -i $input -c $codec -ss $1 -to $2 $filename"
     if [[ $ffmpeg_out = true ]]; then

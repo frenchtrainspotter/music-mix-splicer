@@ -6,10 +6,11 @@ show_help() {
     echo "Usage: $(basename $0) [-h|--help] [-i|--input <filepath>] [split-times]"
     echo
     echo "Options:"
-    echo " -c, --codec <codec>      Change codec used by FFmpeg (default: copy)"
-    echo " -f, --ffmpeg-out         Display FFmpeg output"
-    echo " -i, --input <filepath>   Input file"
-    echo " -h, --help               Display this help message and quit"
+    echo " -c, --codec      <codec>    Change codec used by FFmpeg (default: copy)"
+    echo " -e, --extension  <ext>      File extension for output"
+    echo " -f, --ffmpeg-out            Display FFmpeg output"
+    echo " -i, --input      <filepath> Input file"
+    echo " -h, --help                  Display this help message and quit"
     exit 0
 }
 
@@ -22,7 +23,7 @@ err() {
 }
 
 # Parse options
-options=$(getopt -o "c:fi:h" --long ",codec:,ffmpeg-out,input:,help" -n "$(basename $0)" -- "$@")
+options=$(getopt -o "c:e:fi:h" --long "codec:,extension,ffmpeg-out,input:,help" -n "$(basename $0)" -- "$@")
 
 if [[ $? -ne 0 ]]; then
     err "Failed to parse options" fatal
@@ -31,6 +32,7 @@ fi
 eval set -- "$options"
 
 codec="copy"
+extension=""
 ffmpeg_out=false
 input=""
 
@@ -41,7 +43,11 @@ while true; do
           codec="$2"
           shift 2
           ;;
-	-f | --ffmpeg-out)
+        -e | --extension)
+          extension=".$2"
+          shift 2
+          ;;
+        -f | --ffmpeg-out)
           ffmpeg_out=true
           shift
           ;;
@@ -67,17 +73,28 @@ if [[ -z "$input" ]]; then
     err "No input file specified" fatal
 fi
 
+# Initialize non-argument variables
+tracknumber=1
+
 # Generate output
 write_out() {
     local filename=""
-    read -rp "Filename for track from $1 to $2: " filename
+    if [[ -z "$extension" ]]; then
+        read -rp "Filename for track $tracknumber (with extension): " filename
+    else
+        read -erp "Filename for track $tracknumber (without extension): " -i "$(printf %02d $tracknumber)" filename
+    fi
+    ((tracknumber++))
     if [[ -z "$filename" ]]; then
         err "Filename must not be empty!" fatal
     fi
+    filename="${filename}${extension}"
     local ffmpegcmd="ffmpeg -i $input -c $codec -ss $1 -to $2 $filename"
     if [[ $ffmpeg_out = true ]]; then
         $ffmpegcmd
     else
+        # This command should be made so /dev/stderr isn’t flushed to /dev/null
+        # Also, if possible, progress should be kept on screen
         $ffmpegcmd &>/dev/null
     fi
     # There should be a check added to FFmpeg’s exit code to avoid missing an error

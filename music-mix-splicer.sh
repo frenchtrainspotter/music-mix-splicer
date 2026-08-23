@@ -6,11 +6,12 @@ show_help() {
     echo "Usage: $(basename $0) [-h|--help] [-i|--input <filepath>] [split-times]"
     echo
     echo "Options:"
-    echo " -c, --codec      <codec>    Change codec used by FFmpeg (default: copy)"
-    echo " -e, --extension  <ext>      File extension for output"
-    echo " -f, --ffmpeg-out            Display FFmpeg output"
-    echo " -i, --input      <filepath> Input file"
-    echo " -h, --help                  Display this help message and quit"
+    echo " -a, --automatic              Run non-interactively, requires -e to determine filename"
+    echo " -c, --codec          <codec> Change codec used by FFmpeg (default: copy)"
+    echo " -e, --extension      <ext>   File extension for output, allows automatic operation"
+    echo " -f, --ffmpeg-out             Display FFmpeg output"
+    echo " -i, --input          <path>  Input file"
+    echo " -h, --help                   Display this help message and quit"
     exit 0
 }
 
@@ -23,7 +24,7 @@ err() {
 }
 
 # Parse options
-options=$(getopt -o "c:e:fi:h" --long "codec:,extension,ffmpeg-out,input:,help" -n "$(basename $0)" -- "$@")
+options=$(getopt -o "ac:e:fi:h" --long "automatic,codec:,extension,ffmpeg-out,input:,help" -n "$(basename $0)" -- "$@")
 
 if [[ $? -ne 0 ]]; then
     err "Failed to parse options" fatal
@@ -31,6 +32,7 @@ fi
 
 eval set -- "$options"
 
+automatic=false
 codec="copy"
 extension=""
 ffmpeg_out=false
@@ -39,6 +41,10 @@ input=""
 
 while true; do
     case "$1" in
+        -a | --automatic)
+          automatic=true
+          shift
+          ;;
         -c | --codec)
           codec="$2"
           shift 2
@@ -63,14 +69,19 @@ while true; do
           break
           ;;
         *)
-          err "Internal error - invalid argument!" fatal
+          err "Internal error - invalid argument" fatal
           ;;
     esac
 done
 
 # Try to catch bad args (incl. positional args)
+# No input
 if [[ -z "$input" ]]; then
     err "No input file specified" fatal
+fi
+# Automatic without extension
+if [[ $automatic = true && -z $extension ]]; then
+    err "No extension specified, but automatic operation enabled" fatal
 fi
 
 # Initialize non-argument variables
@@ -81,6 +92,9 @@ write_out() {
     local filename=""
     if [[ -z "$extension" ]]; then
         read -rp "Filename for track $tracknumber (with extension): " filename
+    elif [[ $automatic = true ]]; then
+        filename="$(printf %02d $tracknumber)"
+        echo "${filename}${extension}"
     else
         read -erp "Filename for track $tracknumber (without extension): " -i "$(printf %02d $tracknumber)" filename
     fi
